@@ -1,0 +1,27 @@
+.board-outer {
+    background-color: #808080;
+    overflow: auto;
+    display: inline-block;
+    padding: 3px;
+}
+.board-cell {
+    background-color: #B0B0B0;
+    margin: 2px;
+    padding: 8px;
+    height: 50px;
+    width: 50px;
+    float: left;
+}
+.board-row {
+    clear: both;
+}
+.board-tile {
+    background-color: #F0F0F0;
+    position: absolute;
+    margin: 2px;
+    padding: 20px 8px;
+    height: 26px;
+    width: 50px;
+    font-size: 24px;
+    text-align: center;
+}
