@@ -39,13 +39,13 @@ app.Game = Backbone.Model.extend({
 
         this.trigger('change');
     },
-    possibleMoves: function() {
+    possibleMovesForGrid: function(grid) {
         // Returns an array of true or false for each possible move.
         var result = [false, false, false, false];
         // Check rows
         for (var y = 0; y < this.SIZE; y++) {
             for (var x = 0; x < this.SIZE-1; x++) {
-                var left = this.grid[x][y], right = this.grid[x+1][y];
+                var left = grid[x][y], right = grid[x+1][y];
                 if ((left == 0 && right > 0) || (left != 0 && left == right)) {
                     result[this.MOVE_LEFT] = true;
                 }
@@ -57,7 +57,7 @@ app.Game = Backbone.Model.extend({
         // Check columns
         for (var x = 0; x < this.SIZE; x++) {
             for (var y = 0; y < this.SIZE-1; y++) {
-                var up = this.grid[x][y], down = this.grid[x][y+1];
+                var up = grid[x][y], down = grid[x][y+1];
                 if ((up == 0 && down > 0) || (up != 0 && up == down)) {
                     result[this.MOVE_UP] = true;
                 }
@@ -68,6 +68,9 @@ app.Game = Backbone.Model.extend({
         }
         return result;
     },
+    possibleMoves: function() {
+        return this.possibleMovesForGrid(this.grid);
+    },
     isGameOver: function() {
         var possible = this.possibleMoves();
         return !(possible[this.MOVE_LEFT] || possible[this.MOVE_RIGHT] ||
@@ -76,7 +79,7 @@ app.Game = Backbone.Model.extend({
     _isOnBoard: function(x, y) {
         return x >= 0 && x < this.SIZE && y >= 0 && y < this.SIZE;
     },
-    _slide: function(startx, starty, deltax, deltay) {
+    _slide: function(grid, startx, starty, deltax, deltay) {
         // The algorithm:
         // E.g. when moving left, start from the left. If the tile is not empty,
         // it will try to grab a tile with the same value, if possible. If it is
@@ -88,8 +91,8 @@ app.Game = Backbone.Model.extend({
             var x2 = x - deltax;
             var y2 = y - deltay;
             while (this._isOnBoard(x2, y2)) {
-                var curTile = this.grid[x][y];
-                var otherTile = this.grid[x2][y2];
+                var curTile = grid[x][y];
+                var otherTile = grid[x2][y2];
 
                 if (otherTile == 0) {
                     x2 = x2 - deltax;
@@ -98,8 +101,8 @@ app.Game = Backbone.Model.extend({
                 }
                 // Here we know we have a non-zero tile to slide.
                 if (curTile == 0) {
-                    this.grid[x][y] = otherTile;
-                    this.grid[x2][y2] = 0;
+                    grid[x][y] = otherTile;
+                    grid[x2][y2] = 0;
                     // If we're sliding to zero, we need to keep looking!
                     // E.g. [0, 2, 2, 0] case needs to collapse the 2s.
                     moveMade = true;
@@ -108,8 +111,8 @@ app.Game = Backbone.Model.extend({
 
                 if (curTile == otherTile) {
                     // Slide it over and collapse the two values to 1.
-                    this.grid[x][y] = curTile + otherTile;
-                    this.grid[x2][y2] = 0;
+                    grid[x][y] = curTile + otherTile;
+                    grid[x2][y2] = 0;
                     moveMade = true;
                     break; // Proceed to the next tile
                 } else {
@@ -125,7 +128,15 @@ app.Game = Backbone.Model.extend({
 
         return moveMade;
     },
-    makeMove: function(move) {
+    _cloneGrid: function(oldGrid) {
+        // We need a deep copy or else the rows are just references.
+        var newGrid = [];
+        for (var x=0; x <= this.SIZE; x++) {
+            newGrid[x] = (_.clone(oldGrid[x]));
+        }
+        return newGrid;
+    },
+    newGridForMove: function(oldGrid, move) {
         var startTiles = [];
         var deltax = 0, deltay = 0;
         if (move == this.MOVE_LEFT) {
@@ -155,19 +166,67 @@ app.Game = Backbone.Model.extend({
 
         var madeMove = false;
         var self = this;
+        var newGrid = this._cloneGrid(oldGrid);
         // Actually make the moves now.
         _.each(startTiles, function(tile) {
-            madeMove |= self._slide(tile[0], tile[1], deltax, deltay);
+            madeMove |= self._slide(newGrid, tile[0], tile[1], deltax, deltay);
         });
 
-        this.trigger('change');
-        return madeMove;
+        return madeMove ? newGrid : false;
+    },
+    makeMove: function(move) {
+        var newGrid = this.newGridForMove(this.grid, move);
+        if (newGrid !== false) {
+            this.grid = newGrid;
+            this.trigger('change');
+            return true;
+        }
+        return false;
     },
     getXY: function(x, y) {
         return this.grid[x][y];
     }
 });
 
+app.AI = Backbone.Model.extend({
+    _findAllMoves: function(game, gameGrid) {
+        // Returns a mapping of {move} -> {score}. Score is set later.
+        var result = {};
+        var moves = game.possibleMovesForGrid(gameGrid);
+        for (var move in moves) {
+            if (moves[move]) {
+                result[move] = 0;
+            }
+        }
+        return result;
+    },
+    _evaluatePosition: function(gameGrid) {
+        return Math.random();
+    },
+    _evaluateMoves: function(game, gameGrid, moveScores) {
+        for(var move in moveScores) {
+            var newGrid = game.newGridForMove(gameGrid, move);
+            moveScores[move] = this._evaluatePosition(newGrid);
+        }
+    },
+    _bestMove: function(game, gameGrid) {
+        var moveScores = this._findAllMoves(game, gameGrid);
+        this._evaluateMoves(game, gameGrid, moveScores);
+        var result = false;
+
+        var bestScore = -1;
+        for(var move in moveScores) {
+            if (moveScores[move] > bestScore) {
+                result = move;
+                bestScore = moveScores[move];
+            }
+        }
+        return result;
+    },
+    bestMove: function(game) {
+        return this._bestMove(game, game.grid);
+    }
+});
 app.GameConsoleView = Backbone.View.extend({
     initialize: function() {
         this.listenTo(this.model, 'change', this.logGame);
@@ -215,11 +274,12 @@ app.GameConsoleView = Backbone.View.extend({
 });
 
 app.GameView = Backbone.View.extend({
-    TILE_SIZE: 70,
-    TILE_OFFSET: 11,
+    TILE_SIZE: 54,
+    TILE_OFFSET: 3,
 
     el: $(document), // The whole document, to manage keyboard events
     events: {
+        "click #ai-move-button": "makeAIMove",
         "keydown": "keyPressed"
     },
     template: _.template($('#game-board-template').html()),
@@ -263,9 +323,25 @@ app.GameView = Backbone.View.extend({
                 game.makeMove(gameDir);
                 game.addRandom();
                 if (game.isGameOver()) {
-                    console.log("Game over.");
-                    this.$('#board').append('Game Over.');
+                    $('#message').text("Game over.");
                 }
+            }
+        }
+    },
+    getAI: function() {
+        if (!this.ai) {
+            this.ai = new app.AI();
+        }
+        return this.ai;
+    },
+    makeAIMove: function(e) {
+        var move = this.getAI().bestMove(this.model);
+        if (move !== false) {
+            $('#message').text("AI move: " + ['left', 'right', 'up', 'down'][move]);
+            this.model.makeMove(move);
+            this.model.addRandom();
+            if (this.model.isGameOver()) {
+                $('#message').text("Game over.");
             }
         }
     }
