@@ -214,4 +214,60 @@ app.GameConsoleView = Backbone.View.extend({
     }
 });
 
-var view = new app.GameConsoleView({model: new app.Game()});
+app.GameView = Backbone.View.extend({
+    TILE_SIZE: 70,
+    TILE_OFFSET: 11,
+
+    el: $(document), // The whole document, to manage keyboard events
+    events: {
+        "keydown": "keyPressed"
+    },
+    template: _.template($('#game-board-template').html()),
+    initialize: function() {
+        this.listenTo(this.model, 'change', this.render);
+        this.model.addRandom();
+    },
+    _positionForTile: function(x, y) {
+        var xpos = this.TILE_OFFSET + this.TILE_SIZE * x;
+        var ypos = this.TILE_OFFSET + this.TILE_SIZE * y;
+        return [xpos, ypos];
+    },
+    render: function() {
+        this.$('#board').html(this.template({boardSize: this.model.SIZE}));
+        for(var y=0; y < this.model.SIZE; y++) {
+            for(var x=0; x < this.model.SIZE; x++) {
+                var tileValue = this.model.getXY(x, y);
+                if (tileValue > 0) {
+                    var html = '<div class="board-tile">' + tileValue + '</div>';
+                    var pos = this._positionForTile(x, y);
+                    var $tile = $(html).css(
+                        {top: pos[1] + "px", left: pos[0] + "px"});
+                    this.$('.board-outer').append($tile);
+                }
+            }
+        }
+    },
+    keyPressed: function(e) {
+        var game = this.model;
+        var keyMap = {
+            37: game.MOVE_LEFT,
+            38: game.MOVE_UP,
+            39: game.MOVE_RIGHT,
+            40: game.MOVE_DOWN
+        }
+        var code = e.keyCode;
+        if (code in keyMap) {
+            var gameDir = keyMap[code];
+            var possible = game.possibleMoves();
+            if (possible[gameDir]) {
+                game.makeMove(gameDir);
+                game.addRandom();
+                if (game.isGameOver()) {
+                    console.log("Game over.");
+                    this.$('#board').append('Game Over.');
+                }
+            }
+        }
+    }
+});
+var view = new app.GameView({model: new app.Game()});
