@@ -1,6 +1,9 @@
 .controls {
     margin-bottom: 10px;
 }
+#board {
+    height: 250px;
+}
 .board-outer {
     background-color: #808080;
     overflow: auto;

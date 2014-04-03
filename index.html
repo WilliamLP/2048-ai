@@ -18,11 +18,23 @@
             </div>
         </div>
     </nav>
-    <div class="controls">
+    <div class="controls form-inline">
+        <span id="game-ai-select-container"></span>
         <button type="button" id="ai-move-button" class="btn btn-sm btn-default">AI Move</button>
     </div>
     <div id="message">&nbsp;</div>
     <div id="board"></div>
+    <div id="arena">
+        <div class="form-inline">
+            Number of games: <input id="arena-num-games" type="text" value="1">
+            <span id="arena-ai-select-container"></span>
+            <button type="button" id="arena-run-button" class="btn btn-sm btn-default">Run Arena</button>
+            <button type="button" id="arena-reset-button" class="btn btn-sm btn-default">Reset</button>
+        </div>
+        <div>
+            <textarea id="arena-results" rows="8" cols="40"></textarea>
+        </div>
+    </div>
 </div>
 </body>
 
@@ -37,6 +49,14 @@
         </div>
         <% } // for %>
     </div>
+</script>
+
+<script type="text/template" id="ai-selector">
+    <select class="ai-select form-control">
+        <% _.each(aiList, function(ai, aiName) { %>
+        <option value="<%- aiName %>"><%- aiName %></option>
+        <% }); // each %>
+    </select>
 </script>
 
 <script src="js/2048.js"></script>
