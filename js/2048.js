@@ -188,87 +188,6 @@ app.Game = Backbone.Model.extend({
     }
 });
 
-app.AI = Backbone.Model.extend({
-    _findAllMoves: function(game, gameGrid) {
-        // Returns a mapping of {move} -> {score}. Score is set later.
-        var result = {};
-        var moves = game.possibleMovesForGrid(gameGrid);
-        for (var move in moves) {
-            if (moves[move]) {
-                result[move] = 0;
-            }
-        }
-        return result;
-    },
-    _evaluatePosition: function(gameGrid) {
-        return Math.random();
-    },
-    _evaluateMoves: function(game, gameGrid, moveScores) {
-        for(var move in moveScores) {
-            var newGrid = game.newGridForMove(gameGrid, move);
-            moveScores[move] = this._evaluatePosition(newGrid);
-        }
-    },
-    _bestMove: function(game, gameGrid) {
-        var moveScores = this._findAllMoves(game, gameGrid);
-        this._evaluateMoves(game, gameGrid, moveScores);
-        var result = false;
-
-        var bestScore = -1;
-        for(var move in moveScores) {
-            if (moveScores[move] > bestScore) {
-                result = move;
-                bestScore = moveScores[move];
-            }
-        }
-        return result;
-    },
-    bestMove: function(game) {
-        return this._bestMove(game, game.grid);
-    }
-});
-
-app.AIRandom = app.AI.extend({
-    // Simply the default behaviour.
-});
-
-app.AIAvoidUp = app.AI.extend({
-    _evaluateMoves: function(game, gameGrid, moveScores) {
-        app.AI.prototype._evaluateMoves.apply(this, arguments); // super()
-        // Drop the score of "UP" so we avoid it.
-        if (game.MOVE_UP in moveScores) {
-            moveScores[game.MOVE_UP] = 0;
-        }
-    }
-});
-
-app.AIPreferDown = app.AIAvoidUp.extend({
-    _evaluateMoves: function(game, gameGrid, moveScores) {
-        app.AIAvoidUp.prototype._evaluateMoves.apply(this, arguments); // super()
-        // Pump the score of "DOWN" so we pick it if we can.
-        if (game.MOVE_DOWN in moveScores) {
-            moveScores[game.MOVE_DOWN] = 1000;
-        }
-    }
-});
-
-app.AIDownRightLeft = app.AI.extend({
-    _evaluateMoves: function(game, gameGrid, moveScores) {
-        if (game.MOVE_DOWN in moveScores) {
-            moveScores[game.MOVE_DOWN] = 4;
-        }
-        if (game.MOVE_RIGHT in moveScores) {
-            moveScores[game.MOVE_RIGHT] = 3;
-        }
-        if (game.MOVE_LEFT in moveScores) {
-            moveScores[game.MOVE_LEFT] = 2;
-        }
-        if (game.MOVE_UP in moveScores) {
-            moveScores[game.MOVE_UP] = 1;
-        }
-    }
-});
-
 app.Arena = Backbone.Model.extend({
     initialize: function() {
         this.resetScores();
@@ -463,19 +382,20 @@ app.ArenaView = Backbone.View.extend({
         var scores = _.keys(arena.scoreTally);
         scores.sort(function(a, b) { return parseInt(a) - parseInt(b); });
         var text = "";
+        var numGames = 0;
+        var totalScore = 0;
         _.each(scores, function(score) {
             text += score + " : " + arena.scoreTally[score] + "\n";
+
+            numGames += arena.scoreTally[score];
+            totalScore += arena.scoreTally[score] * score;
         });
+        if (numGames > 0) {
+            text += "Average: " + (totalScore / numGames).toFixed(1);
+        }
         this.$('#arena-results').val(text);
     }
 });
-
-app.ais = {
-    'Random Moves': new app.AIRandom(),
-    'Avoid Up': new app.AIAvoidUp(),
-    'Prefer Down': new app.AIPreferDown(),
-    'Down-right-left': new app.AIDownRightLeft()
-}
 
 var view = new app.GameView({model: new app.Game()});
 var arenaView = new app.ArenaView({model: new app.Arena()});
